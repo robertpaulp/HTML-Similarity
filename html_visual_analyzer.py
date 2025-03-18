@@ -30,23 +30,21 @@ class ImageAnalyzer:
             print(f"Error processing image {image_path}: {str(e)}")
             return None
 
-    def analyze_screenshots(self, screenshots_dir, thresholds, save_dir="clip_plots", threshold=0.5):
+    def analyze_screenshots(self, screenshot_dir, save_dir="clip_plots", threshold=0.2):
         """
         screenshots_dir: Directory containing screenshots
         save_dir: Directory to save plots
         threshold: Distance threshold for clustering
         """
         os.makedirs(save_dir, exist_ok=True)
-        
-        print(f"Analyzing screenshots in {screenshots_dir}")
 
         image_files = []
         feature_vectors = []
         
-        screenshots = sorted(os.listdir(screenshots_dir))
+        screenshots = sorted(os.listdir(screenshot_dir))
         for filename in screenshots:
             if filename.endswith(".png"):
-                image_path = os.path.join(screenshots_dir, filename)
+                image_path = os.path.join(screenshot_dir, filename)
                 features = self.extract_features(image_path)
                 
                 if features is not None:
@@ -55,7 +53,7 @@ class ImageAnalyzer:
         
         if not feature_vectors:
             print("No images found")
-            return
+            return None, None
         
         feature_vectors = np.array(feature_vectors)
         similarity_matrix = cosine_similarity(feature_vectors)
@@ -67,19 +65,12 @@ class ImageAnalyzer:
             metric='precomputed',
             linkage='complete'
         )
-        labels = clustering.fit_predict(distance_matrix)
-        
-        # Visualization
-        tier = screenshots_dir.split("/")[-1]
+        labels = clustering.fit_predict(distance_matrix)        
         site_urls = [f.replace(".html.png", "") for f in image_files]
 
-        self._plot_similarity_matrix(similarity_matrix, site_urls, tier, threshold, save_dir)
-        self._plot_similarity_dif_threshold(distance_matrix, site_urls, thresholds, tier, save_dir)
-        # self._plot_cluster_grid(image_files, labels, screenshots_dir, tier, save_dir)
-        
-        return similarity_matrix, labels
+        return similarity_matrix, labels, site_urls
 
-    def _plot_similarity_matrix(self, similarity_matrix, filenames, tier, threshold, save_dir="clip_plots"):
+    def plot_similarity_matrix(self, similarity_matrix, filenames, tier, threshold, save_dir="clip_plots"):
         plt.figure(figsize=(15, 12))
 
         sns.heatmap(similarity_matrix,
@@ -91,7 +82,7 @@ class ImageAnalyzer:
         plt.savefig(f'{save_dir}/{tier}_similarity.png', dpi=300, bbox_inches='tight')
         plt.close()
     
-    def _plot_cluster_grid(self, image_files, labels, directory, tier, save_dir="clip_plots"):
+    def plot_cluster_grid(self, image_files, labels, directory, tier, save_dir="clip_plots"):
         """Grid of images grouped by cluster"""
         clusters = {}
         for filename, label in zip(image_files, labels):
@@ -125,7 +116,7 @@ class ImageAnalyzer:
             plt.savefig(f'{save_dir}/{tier}_cluster_{label}_grid.png', dpi=300, bbox_inches='tight')
             plt.close()
 
-    def _plot_similarity_dif_threshold(self, distance_matrix, filenames, tier, thresholds, save_dir="clip_plots"):
+    def plot_similarity_dif_threshold(self, distance_matrix, filenames, tier, thresholds, save_dir="clip_plots"):
         colors = ['red', 'blue', 'green', 'purple', 'orange']
         
         plt.figure(figsize=(20, 15))
@@ -163,16 +154,24 @@ class ImageAnalyzer:
         plt.close()
 
 def main():
+    print("Visual analyzer based on CLIP")
     analyzer = ImageAnalyzer()
 
     thresholds = [0.1, 0.2, 0.3, 0.5, 0.7]
+    threshold = 0.5
     
     screenshot_dir = "screenshots"
     for tier in ['tier1', 'tier2', 'tier3', 'tier4']:
-        if os.path.exists(f"{screenshot_dir}/{tier}"):
-            analyzer.analyze_screenshots(f"{screenshot_dir}/{tier}", thresholds, save_dir="clip_plots", threshold=0.2)
-        else:
+        if not os.path.exists(f"{screenshot_dir}/{tier}"):
             print(f"Directory not found: {screenshot_dir}/{tier}")
+            continue
+        
+        print(f"Analyzing screenshots in {screenshot_dir}/{tier}")
+
+        similarity_matrix, labels, site_urls = analyzer.analyze_screenshots(f"{screenshot_dir}/{tier}", save_dir="clip_plots", threshold=threshold)
+        analyzer.plot_similarity_matrix(similarity_matrix, site_urls, tier, threshold)
+        distance_matrix = 1 - similarity_matrix
+        analyzer.plot_similarity_dif_threshold(distance_matrix, site_urls, tier, thresholds)
 
 if __name__ == "__main__":
     main()

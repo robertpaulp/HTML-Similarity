@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 
-class ImageAnalyzer:
+class ImageHashAnalyzer:
     @staticmethod
     def get_image_hash(image_path):
         if image_path is None:
@@ -60,31 +60,29 @@ class ImageAnalyzer:
         sns.heatmap(similarity_matrix, 
                     xticklabels=[f[:15] for f in filenames],
                     yticklabels=[f[:15] for f in filenames],
-                    cmap='YlOrRd',
+                    cmap='RdYlBu_r',
                     mask=mask,
                     square=True)
-        plt.title(f'Visual Similarity Matrix\n{tier}')
+        plt.title(f'Hash Similarity Matrix\n{tier}')
         plt.xticks(rotation=45, ha='right')
         plt.yticks(rotation=0)
         plt.tight_layout()
-        plt.savefig(f'hash_plots/{tier}_visual_similarity.png', dpi=300)
+        plt.savefig(f'hash_plots/{tier}_hash_similarity.png', dpi=300)
         plt.close()
     
     @staticmethod
     def plot_visual_dendrogram(image_hashes, filenames, tier, similarity_matrix):
-        """Plot dendrogram for visual clustering"""
         if not image_hashes:
             return
             
-        # Distance is 1 - similarity
         distance_matrix = 1 - similarity_matrix
         
         plt.figure(figsize=(12, 8))
         linkage_matrix = linkage(distance_matrix, method='average')
         dendrogram(linkage_matrix, labels=filenames, leaf_rotation=90)
-        plt.title(f'Visual Clustering Dendrogram\n{tier}')
+        plt.title(f'Hash Clustering Dendrogram\n{tier}')
         plt.tight_layout()
-        plt.savefig(f'hash_plots/{tier}_visual_dendrogram.png', dpi=300)
+        plt.savefig(f'hash_plots/{tier}_hash_dendrogram.png', dpi=300)
         plt.close()
         
         return distance_matrix
@@ -95,7 +93,6 @@ class ImageAnalyzer:
             print(f"Directory not found: {screenshot_dir}")
             return
         
-        # Get files from directory
         screenshot_files = sorted([f for f in os.listdir(screenshot_dir) 
                                    if f.endswith(('.png', '.jpg', '.jpeg'))])
         
@@ -108,10 +105,9 @@ class ImageAnalyzer:
         image_hashes = []
         valid_files = []
         
-        # Process each screenshot
         for filename in screenshot_files:
             path = os.path.join(screenshot_dir, filename)
-            hash_value = ImageAnalyzer.get_image_hash(path)
+            hash_value = ImageHashAnalyzer.get_image_hash(path)
             if hash_value is not None:
                 image_hashes.append(hash_value)
                 valid_files.append(filename)
@@ -124,15 +120,14 @@ class ImageAnalyzer:
         
         os.makedirs('hash_plots', exist_ok=True)
         
-        # Generate visual similarity matrix
         n_samples = len(image_hashes)
         visual_similarity = np.zeros((n_samples, n_samples))
         for i in range(n_samples):
             for j in range(n_samples):
                 visual_similarity[i,j] = 1 - (np.sum(image_hashes[i] != image_hashes[j]) / len(image_hashes[i]))
         
-        ImageAnalyzer.plot_visual_similarity_matrix(image_hashes, valid_files, tier, visual_similarity)
-        ImageAnalyzer.plot_visual_dendrogram(image_hashes, valid_files, tier, visual_similarity)
+        ImageHashAnalyzer.plot_visual_similarity_matrix(image_hashes, valid_files, tier, visual_similarity)
+        ImageHashAnalyzer.plot_visual_dendrogram(image_hashes, valid_files, tier, visual_similarity)
 
 
 def main():
@@ -140,7 +135,7 @@ def main():
 
     for tier in ['tier1', 'tier2', 'tier3', 'tier4']:
         screenshot_dir = f'screenshots/{tier}'
-        ImageAnalyzer.process_screenshots(screenshot_dir, tier)
+        ImageHashAnalyzer.process_screenshots(screenshot_dir, tier)
 
 
 if __name__ == "__main__":
